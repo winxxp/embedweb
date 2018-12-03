@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 )
@@ -65,12 +64,7 @@ func handleLogMenu(logRoot string) http.HandlerFunc {
 
 		pathname := req.FormValue("pathname")
 		if pathname == "" {
-			if runtime.GOOS == "windows" {
-				p, _ := os.Getwd()
-				pathname = p
-			} else {
-				pathname = logRoot
-			}
+			pathname = logRoot
 		}
 		data := X{"routePath": req.URL.Path, "pathname": pathname, "host": req.FormValue("host")}
 
