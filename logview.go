@@ -9,11 +9,29 @@ import (
 	"strings"
 )
 
+type Option struct {
+	sn string
+}
+
+type Options func(opt *Option)
+
+func SN(sn string) Options {
+	return func(opt *Option) {
+		opt.sn = sn
+	}
+}
+
 // Handler log view 入口
-func LobViewHandler(title string, logRoot string) http.HandlerFunc {
+func LobViewHandler(title string, logRoot string, opts ...Options) http.HandlerFunc {
+	opt := &Option{}
+
+	for _, f := range opts {
+		f(opt)
+	}
+
 	var logHandler = map[string]http.HandlerFunc{
-		"menu": handleLogMenu(logRoot),
-		"view": handleLogView(),
+		"menu": handleLogMenu(logRoot, opt),
+		"view": handleLogView(opt),
 	}
 
 	return func(w http.ResponseWriter, req *http.Request) {
@@ -28,13 +46,14 @@ func LobViewHandler(title string, logRoot string) http.HandlerFunc {
 						<title>{{.title}}</title>
 					</head>
 					<frameset cols="300,*">
-						<frame src="{{.routePath}}?info=menu&host={{.host}}" name="menu">
-						<frame src="{{.routePath}}?info=result&host={{.host}}" name="result">
+						<frame src="{{.routePath}}?info=menu&host={{.host}}&sn={{.sn}}" name="menu">
+						<frame src="{{.routePath}}?info=result&host={{.host}}&sn={{.sn}}" name="result">
 					</frameset>
 				</html>`, X{
 				"routePath": req.URL.Path,
 				"host":      host,
 				"title":     title,
+				"sn":        opt.sn,
 			})
 			return
 		}
@@ -51,7 +70,7 @@ func LobViewHandler(title string, logRoot string) http.HandlerFunc {
 	}
 }
 
-func handleLogMenu(logRoot string) http.HandlerFunc {
+func handleLogMenu(logRoot string, opt *Option) http.HandlerFunc {
 	if logRoot == "" {
 		logRoot = "/tmp"
 	}
@@ -66,7 +85,12 @@ func handleLogMenu(logRoot string) http.HandlerFunc {
 		if pathname == "" {
 			pathname = logRoot
 		}
-		data := X{"routePath": req.URL.Path, "pathname": pathname, "host": req.FormValue("host")}
+		data := X{
+			"routePath": req.URL.Path,
+			"pathname":  pathname,
+			"host":      req.FormValue("host"),
+			"sn":        opt.sn,
+		}
 
 		if f, err := os.Open(pathname); err != nil {
 			data["error"] = err.Error()
@@ -102,13 +126,13 @@ func handleLogMenu(logRoot string) http.HandlerFunc {
 			<h3>{{.error}}</h3>
 			<ul style="list-style-type:circle;">
 				{{range .dirs}}
-		        <li><a href="{{$.routePath}}?info=menu&host={{$.host}}&pathname={{.Pathname}}" target="menu">{{.Name}}</a></li>
+		        <li><a href="{{$.routePath}}?info=menu&host={{$.host}}&pathname={{.Pathname}}&sn={{$.sn}}" target="menu">{{.Name}}</a></li>
 		        {{end}}
 			</ul>
 			{{if gt (len .dirs) 0}}<hr />{{end}}
 			<ul>
 				{{range .logs}}
-		        <li><a href="{{$.routePath}}?info=view&host={{$.host}}&pathname={{.Pathname}}" target="result">{{.Name}}</a></li>
+		        <li><a href="{{$.routePath}}?info=view&host={{$.host}}&pathname={{.Pathname}}&sn={{$.sn}}" target="result">{{.Name}}</a></li>
 		        {{end}}
 			</ul>
 			<pre>{{.content}}<pre>`, data); err != nil {
@@ -117,7 +141,7 @@ func handleLogMenu(logRoot string) http.HandlerFunc {
 	}
 }
 
-func handleLogView() http.HandlerFunc {
+func handleLogView(opt *Option) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		const pageSize = 4096
 		var (
@@ -136,6 +160,7 @@ func handleLogView() http.HandlerFunc {
 				"page":        1,
 				"pages":       0,
 				"content":     "",
+				"sn":          opt.sn,
 			}
 		)
 
@@ -147,10 +172,10 @@ func handleLogView() http.HandlerFunc {
 		defer func() {
 
 			if err := toHtml(w, `
-				{{define "nav"}}<pre>{{if gt .curPos 0}}<a href="{{.routePath}}?info=view&host={{.host}}&pos=0&pathname={{.pathname}}">首页</a> | `+
-				`<a href="{{.routePath}}?info=view&pos={{.prePagePos}}&host={{.host}}&pathname={{.pathname}}">上一页</a> | {{end}}`+
-				`{{if lt .nextPagePos .fileSize}}<a href="{{.routePath}}?info=view&host={{.host}}&pos={{.nextPagePos}}&pathname={{.pathname}}">下一页</a> |{{end}} `+
-				`<a href="{{.routePath}}?info=view&pos=-1&host={{.host}}&pathname={{.pathname}}">最后一页</a> [{{.page}}/{{.pages}}]</pre>{{end}}
+				{{define "nav"}}<pre>{{if gt .curPos 0}}<a href="{{.routePath}}?info=view&host={{.host}}&pos=0&pathname={{.pathname}}&sn={{.sn}}">首页</a> | `+
+				`<a href="{{.routePath}}?info=view&pos={{.prePagePos}}&host={{.host}}&pathname={{.pathname}}&sn={{.sn}}">上一页</a> | {{end}}`+
+				`{{if lt .nextPagePos .fileSize}}<a href="{{.routePath}}?info=view&host={{.host}}&pos={{.nextPagePos}}&pathname={{.pathname}}&sn={{.sn}}">下一页</a> |{{end}} `+
+				`<a href="{{.routePath}}?info=view&pos=-1&host={{.host}}&pathname={{.pathname}}&sn={{.sn}}">最后一页</a> [{{.page}}/{{.pages}}]</pre>{{end}}
 
 				<h3>{{.logname}}</h3>
 				<h3>{{.error}}</h3>{{template "nav" .}}
