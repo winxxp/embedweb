@@ -1,9 +1,15 @@
 package embedweb
 
 import (
+	"bytes"
+	"context"
+	"golang.org/x/text/encoding/simplifiedchinese"
+	"golang.org/x/text/transform"
+	"io"
 	"net/http"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // Handler log view 入口
@@ -16,12 +22,16 @@ func ShellHandler(title string) http.HandlerFunc {
 		}
 
 		if cmd != "" {
-			args := strings.Fields(cmd)
-			buf, err := exec.Command(args[0], args[1:]...).CombinedOutput()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+			defer cancel()
+
+			args := strings.Fields("/C " + cmd)
+			buf, err := exec.CommandContext(ctx, "cmd", args...).CombinedOutput()
+
 			if err != nil {
-				data["result"] = err.Error() + string(buf)
+				data["result"] = err.Error() + GBK2UTF8(buf)
 			} else {
-				data["result"] = string(buf)
+				data["result"] = GBK2UTF8(buf)
 			}
 		}
 
@@ -46,4 +56,13 @@ func ShellHandler(title string) http.HandlerFunc {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
+}
+
+func GBK2UTF8(gbk []byte) string {
+	out := bytes.Buffer{}
+	enc := transform.NewReader(bytes.NewBuffer(gbk), simplifiedchinese.GB18030.NewDecoder())
+	if _, err := io.Copy(&out, enc); err != nil {
+		return "N/A"
+	}
+	return out.String()
 }
