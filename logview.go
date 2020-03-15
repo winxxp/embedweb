@@ -46,8 +46,8 @@ func LobViewHandler(title string, logRoot string, opts ...Options) http.HandlerF
 						<title>{{.title}}</title>
 					</head>
 					<frameset cols="300,*">
-						<frame src="{{.routePath}}?info=menu&host={{.host}}&sn={{.sn}}" name="menu">
-						<frame src="{{.routePath}}?info=result&host={{.host}}&sn={{.sn}}" name="result">
+						<frame src="{{.routePath}}?info=menu&host={{.host}}&sn={{.sn}}" name="menuLog">
+						<frame src="{{.routePath}}?info=result&host={{.host}}&sn={{.sn}}" name="resultLog">
 					</frameset>
 				</html>`, X{
 				"routePath": req.URL.Path,
@@ -61,7 +61,7 @@ func LobViewHandler(title string, logRoot string, opts ...Options) http.HandlerF
 		handler, found := logHandler[req.FormValue("info")]
 		if !found {
 			handler = func(w http.ResponseWriter, req *http.Request) {
-				fmt.Fprint(w, "unknow info")
+				fmt.Fprint(w, "unknown info")
 			}
 			return
 		}
@@ -126,13 +126,13 @@ func handleLogMenu(logRoot string, opt *Option) http.HandlerFunc {
 			<h3>{{.error}}</h3>
 			<ul style="list-style-type:circle;">
 				{{range .dirs}}
-		        <li><a href="{{$.routePath}}?info=menu&host={{$.host}}&pathname={{.Pathname}}&sn={{$.sn}}" target="menu">{{.Name}}</a></li>
+		        <li><a href="{{$.routePath}}?info=menu&host={{$.host}}&pathname={{.Pathname}}&sn={{$.sn}}" target="menuLog">{{.Name}}</a></li>
 		        {{end}}
 			</ul>
 			{{if gt (len .dirs) 0}}<hr />{{end}}
 			<ul>
 				{{range .logs}}
-		        <li><a href="{{$.routePath}}?info=view&host={{$.host}}&pathname={{.Pathname}}&sn={{$.sn}}" target="result">{{.Name}}</a></li>
+		        <li><a href="{{$.routePath}}?info=view&host={{$.host}}&pathname={{.Pathname}}&sn={{$.sn}}" target="resultLog">{{.Name}}</a></li>
 		        {{end}}
 			</ul>
 			<pre>{{.content}}<pre>`, data); err != nil {
